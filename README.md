@@ -97,10 +97,13 @@ func task(input int) (*string, error) {
 }
 
 func main() {
+    // create and process a task asynchronously
     future := functional.ProcessAsync(task, 10)
-	either := future.WaitForResult()
-	result := either.GetResult()
-	fmt.Printf("%T : '%v' \n", result, *result)
+    // block the current goroutine until the result is ready
+    either := future.WaitForResult()
+    // get the result
+    result := either.GetResult()
+    fmt.Printf("%T : '%v' \n", result, *result)
 }
 ```
 
@@ -117,3 +120,17 @@ res3, err3 := future3.WaitForResult().Get()
 ```
 
 The function `WaitForResult()` is a blocking operation, so that the time to wait in the main goroutine is the max time among the executions of the three tasks.
+
+You can also choose not to start the tasks directly this way:
+
+```go
+// prepare the future without starting its execution
+input := 10
+future := functional.NewFuture(task, input)
+
+// execute asynchronously
+future.Process()
+
+// wait and get the result
+res, err := future.WaitForResult().Get()
+```
