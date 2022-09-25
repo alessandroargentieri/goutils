@@ -2,11 +2,11 @@ package functional
 
 // Future struct is a monad implementing a parallel task to be performed
 type Future[T any, V any] struct {
-	ch          *chan Either[V]
-	fn          Function[T, V]
-	input       T
-	output      *Either[V]
-	isCompleted bool
+	ch       *chan Either[V]
+	fn       Function[T, V]
+	input    T
+	output   *Either[V]
+	executed bool
 }
 
 func ProcessAsync[T any, V any](fn Function[T, V], input T) *Future[T, V] {
@@ -16,22 +16,22 @@ func ProcessAsync[T any, V any](fn Function[T, V], input T) *Future[T, V] {
 func NewFuture[T any, V any](fn Function[T, V], input T) *Future[T, V] {
 	ch := make(chan Either[V], 1)
 	return &Future[T, V]{
-		ch:          &ch,
-		fn:          fn,
-		input:       input,
-		output:      nil,
-		isCompleted: false,
+		ch:       &ch,
+		fn:       fn,
+		input:    input,
+		output:   nil,
+		executed: false,
 	}
 }
 
 // Process function performs the wrapped function in another Goroutine and returns a Future with the wrapped result
 // It can also used as a "void" because the wrapped chan is pointed by a Pointer
 func (future *Future[T, V]) Process() *Future[T, V] {
-	if future.isCompleted {
+	if future.executed {
 		return future
 	}
 	go channelifyProcess(future.fn, future.input, future.ch)
-	future.isCompleted = true
+	future.executed = true
 	return future
 }
 
