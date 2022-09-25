@@ -6,8 +6,19 @@ import (
 	"time"
 )
 
-func TestFuture1(t *testing.T) {
-	fmt.Println(*ProcessAsync(heavyTask1, "first-task").WaitForResult().GetResult())
+var counter = 0
+
+func TestFutureOutput(t *testing.T) {
+	future := NewFuture(heavyTask1, "first-task")
+	future.Process()
+	either := future.WaitForResult()
+	res := either.GetResult()
+	if *res != "output-of-first-task" {
+		t.Errorf("wrong return for task 1")
+	}
+	if *future.output.GetResult() != "output-of-first-task" {
+		t.Errorf("wrong return for task 1")
+	}
 }
 
 func TestFuture(t *testing.T) {
@@ -48,20 +59,21 @@ func TestFuture(t *testing.T) {
 }
 
 func TestFutureIdempotence(t *testing.T) {
+	future := NewFuture(heavyTaskForIdempotence, "first-task")
+	future.Process().Process().Process()
+	future.Process()
+	future.Process().Process()
+	future.WaitForResult()
+	future.WaitForResult()
 
-	f1 := NewFuture(heavyTask1, "first-task")
-	f1.Process().Process().Process()
-	f1.Process()
+	result := future.WaitForResult().GetResult()
 
-	f1.WaitForResult()
-	f1.WaitForResult()
-
-	res1 := f1.WaitForResult().GetResult()
-
-	if *res1 != "output-of-first-task" {
-		t.Errorf("wrong return for task 1")
+	if *result != "output-of-first-task-1" {
+		t.Errorf("wrong return for idempotence task")
 	}
-
+	if *future.output.result != "output-of-first-task-1" {
+		t.Errorf("wrong return for idempotence task")
+	}
 }
 
 func heavyTask1(input string) (*string, error) {
@@ -79,4 +91,11 @@ func heavyTask2(input int) (*int, error) {
 func heavyTask3(input string) (*int, error) {
 	time.Sleep(1 * time.Second)
 	return nil, fmt.Errorf("error!")
+}
+
+func heavyTaskForIdempotence(input string) (*string, error) {
+	time.Sleep(5 * time.Second)
+	counter++
+	str := fmt.Sprintf("output-of-%s-%d", input, counter)
+	return &str, nil
 }

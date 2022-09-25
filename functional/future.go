@@ -2,7 +2,7 @@ package functional
 
 // Future struct is a monad implementing a parallel task to be performed
 type Future[T any, V any] struct {
-	ch       *chan Either[V]
+	ch       chan Either[V]
 	fn       Function[T, V]
 	input    T
 	output   *Either[V]
@@ -14,9 +14,8 @@ func ProcessAsync[T any, V any](fn Function[T, V], input T) *Future[T, V] {
 }
 
 func NewFuture[T any, V any](fn Function[T, V], input T) *Future[T, V] {
-	ch := make(chan Either[V], 1)
 	return &Future[T, V]{
-		ch:       &ch,
+		ch:       make(chan Either[V], 1),
 		fn:       fn,
 		input:    input,
 		output:   nil,
@@ -30,12 +29,13 @@ func (future *Future[T, V]) Process() *Future[T, V] {
 	if future.executed {
 		return future
 	}
-	go channelifyProcess(future.fn, future.input, future.ch)
+	go channelifyProcess(future.fn, future.input, &future.ch)
 	future.executed = true
 	return future
 }
 
 func channelifyProcess[T any, V any](fn Function[T, V], input T, ch *chan Either[V]) {
+	defer close(*ch)
 	output, err := fn(input)
 	if err != nil {
 		*ch <- EitherFromError[V](err)
@@ -49,7 +49,7 @@ func (future *Future[T, V]) WaitForResult() Either[V] {
 	if future.output != nil {
 		return *future.output
 	}
-	either := <-*future.ch
+	either := <-future.ch
 	future.output = &either
 	return either
 }
