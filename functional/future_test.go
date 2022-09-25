@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+func TestFuture1(t *testing.T) {
+	fmt.Println(*ProcessAsync(heavyTask1, "first-task").WaitForResult().GetResult())
+}
+
 func TestFuture(t *testing.T) {
 	start := time.Now()
 

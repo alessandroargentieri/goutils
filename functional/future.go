@@ -6,41 +6,33 @@ type Future[T any, V any] struct {
 	fn          Function[T, V]
 	input       T
 	output      *Either[V]
-	isCompleted *bool
+	isCompleted bool
 }
 
-func ProcessAsync[T any, V any](fn Function[T, V], input T) Future[T, V] {
-	return NewFuture[T, V](fn, input).Process()
+func ProcessAsync[T any, V any](fn Function[T, V], input T) *Future[T, V] {
+	return NewFuture(fn, input).Process()
 }
 
-func NewFuture[T any, V any](fn Function[T, V], input T) Future[T, V] {
+func NewFuture[T any, V any](fn Function[T, V], input T) *Future[T, V] {
 	ch := make(chan Either[V], 1)
-	isComplete := false
-	return Future[T, V]{
+	return &Future[T, V]{
 		ch:          &ch,
 		fn:          fn,
 		input:       input,
 		output:      nil,
-		isCompleted: &isComplete,
+		isCompleted: false,
 	}
 }
 
 // Process function performs the wrapped function in another Goroutine and returns a Future with the wrapped result
 // It can also used as a "void" because the wrapped chan is pointed by a Pointer
-func (future Future[T, V]) Process() Future[T, V] {
-	if future.isCompleted != nil && *future.isCompleted == true {
+func (future *Future[T, V]) Process() *Future[T, V] {
+	if future.isCompleted {
 		return future
 	}
 	go channelifyProcess(future.fn, future.input, future.ch)
-	isComplete := true
-	*future.isCompleted = isComplete
-	return Future[T, V]{
-		ch:          future.ch,
-		fn:          future.fn,
-		input:       future.input,
-		output:      future.output,
-		isCompleted: &isComplete,
-	}
+	future.isCompleted = true
+	return future
 }
 
 func channelifyProcess[T any, V any](fn Function[T, V], input T, ch *chan Either[V]) {
@@ -49,8 +41,7 @@ func channelifyProcess[T any, V any](fn Function[T, V], input T, ch *chan Either
 		*ch <- EitherFromError[V](err)
 		return
 	}
-	*ch <- EitherFromResult[V](output)
-	return
+	*ch <- EitherFromResult(output)
 }
 
 // WaitForResult waits and gets the result to the main Goroutine in the form of an Either object
